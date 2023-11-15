@@ -13,6 +13,7 @@ import com.badlogic.gdx.graphics.g2d.Batch;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
@@ -25,21 +26,25 @@ import java.awt.Font;
 import java.util.Objects;
 
 public class ChaiStall extends ApplicationAdapter {
-
-	BitmapFont SaucePanDetails;
+	BitmapFont SaucePanDetails,MoneyFont;
 	Vector3 touch;
-	Sprite player,hand;
+	Sprite player,hand,customerArea;
 	Boolean playerOccupied=false;
 	String itemName=" ";
-	Rectangle playerBounds;
+	String[] menu = {"ginger","sugar","chocolate","leaves","cooked"};
+	Rectangle playerBounds,customerAreaBounds;
 	OrthographicCamera camera;
 	ExtendViewport viewport;
 	SpriteBatch batch;
+	Texture[] customerArray = new Texture[13];
 	Array<StallObject> stallObjectArray= new Array<StallObject>();
 	Array<SaucePan> saucePanArray = new Array<SaucePan>();
 	Array<Cup> cupArray=new Array<Cup>();
-	Texture recycleBinTexture,milkcupTexture,realHandTexture,backgroundTexture,keepableTexture,stoveTexture,milkSourceTexture,cupSourceTexture,leaveSourceTexture,sugarSourceTexture,gingerSourceTexture,chocolateSourceTexture,saucePanTexture,saucePanFireTexture,handTexture,chocolateTexture,gingerTexture,sugarTexture,leaveTexture;
+	Array<Customer> customers = new Array<Customer>();
+	Texture moneyTexture,customerAreaTexture,recycleBinTexture,milkcupTexture,realHandTexture,backgroundTexture,keepableTexture,stoveTexture,milkSourceTexture,cupSourceTexture,leaveSourceTexture,sugarSourceTexture,gingerSourceTexture,chocolateSourceTexture,saucePanTexture,saucePanFireTexture,handTexture,chocolateTexture,gingerTexture,sugarTexture,leaveTexture;
 	int windowWidth=800,windowHeight=420;
+	int money=0,gameLevel;
+	float worldTimeElapsed=0f;
 
 	public void console(String data){
 		Gdx.app.log("",data);
@@ -66,7 +71,7 @@ public class ChaiStall extends ApplicationAdapter {
 		}
 	}
 	public class SaucePan{
-		private float x,y,cooked,timeElapsed=0f;
+		private float x,y,cooked=0f,timeElapsed=0f;
 		private int quantity=0;
 		private boolean active=false;
 		private boolean onStove=false;
@@ -81,7 +86,10 @@ public class ChaiStall extends ApplicationAdapter {
 			saucePanObj.setPosition(x,y);
 		}
 		public void render(SpriteBatch batch){
-			if(cooked==100&&!contents.contains("cooked",true)){contents.add("cooked");cooked=0f;}
+			if(cooked==100&&!contents.contains("cooked",true)){
+				contents.add("cooked");
+				cooked=0f;
+			}
 
 			if(active && playerOccupied) {saucePanObj.setPosition(touch.x-50,touch.y-10);}
 
@@ -134,7 +142,114 @@ public class ChaiStall extends ApplicationAdapter {
 			CupDetails.dispose();
 		}
 	}
+	public class Customer{
 
+		private float x,y,rotation;
+		private Rectangle customerBounds;
+		private Sprite customerObj;
+		private boolean satisfied=false,stop=false;
+		private float timeElapsed=0f;
+		private int walkIndex=0,rating=0;
+		private BitmapFont customerFont;
+		private Array<String> demand;
+		public Customer(float x, float y, Array<String> demand){
+			this.x=x;
+			this.y=y;
+			this.rotation=rotation;
+			this.demand= new Array<String>(demand);
+			this.customerObj=new Sprite(customerArray[0]);
+			customerFont=new BitmapFont();
+			customerFont.setColor(Color.CYAN);
+			customerObj.setPosition(x,y);
+			customerObj.setRotation(rotation);
+			customerObj.setOrigin(customerObj.getWidth()/2f,customerObj.getHeight()/2f);
+		}
+		public void render(SpriteBatch batch){
+			if(!stop) {
+				float delta = Gdx.graphics.getDeltaTime();
+				timeElapsed += delta;
+				if (walkIndex > 12) walkIndex = 0;
+				if (timeElapsed > 0.1f) {
+					timeElapsed = 0;
+					customerObj.setTexture(customerArray[walkIndex]);
+					walkIndex++;
+				}
+
+				float centerY=420/2f;
+				float centerX=800/2f;
+				float angleRad = (float) Math.atan2(centerY - customerObj.getY() , centerX-customerObj.getX());
+				float angleDeg = (float) Math.toDegrees(angleRad);
+				customerObj.setRotation(angleDeg);
+				float directionX = MathUtils.cosDeg(angleDeg);
+				float directionY = MathUtils.sinDeg(angleDeg);
+				//console("x = "+x+"y = "+y+""+" rot="+angleDeg);
+				customerObj.setPosition(customerObj.getX() + directionX, customerObj.getY() + directionY);
+			}
+			if(customerObj.getBoundingRectangle().overlaps(customerAreaBounds) && walkIndex==3){
+				stop=true;
+				timeElapsed=0;
+				customerObj.setTexture(customerArray[3]);
+
+			}
+
+			if(satisfied){
+				float delta = Gdx.graphics.getDeltaTime();
+				timeElapsed += delta;
+				if (walkIndex > 12) walkIndex = 0;
+				if (timeElapsed > 0.1f) {
+					timeElapsed = 0;
+					customerObj.setTexture(customerArray[walkIndex]);
+					walkIndex++;
+				}
+
+				float directionX = MathUtils.cosDeg(rotation);
+				float directionY = MathUtils.sinDeg(rotation);
+				customerObj.setPosition(customerObj.getX() - directionX, customerObj.getY() - directionY);
+
+			}
+			customerObj.draw(batch);
+			if(stop){
+				customerFont.draw(batch,""+demand,customerObj.getX()+customerObj.getWidth()/2,customerObj.getY()+customerObj.getHeight()/2,100,30,true);
+				float delta = Gdx.graphics.getDeltaTime();
+				timeElapsed += delta;
+				if(timeElapsed>10f) {
+					satisfied=true;
+					if(customerObj.getRotation()>180){
+						customerObj.setRotation(customerObj.getRotation()-180);
+					}else{
+						customerObj.setRotation(customerObj.getRotation()+180);
+					}
+				}
+			}
+
+		}
+		public Rectangle getCustomerBounds(){
+			customerBounds=customerObj.getBoundingRectangle();
+			return customerBounds;
+		}
+
+	}
+	public void spawnCustomer(){
+		Array<String> exampleDemand= new Array<>();
+		float x=0,y=0;
+		int random = MathUtils.random(0,2);
+		switch(random){
+			case 0:{x=0;y=MathUtils.random(0,420);break;}
+			case 1:{x=MathUtils.random(0,800);y=420;break;}
+			case 2:{x=800;y=MathUtils.random(0,420);break;}
+			default : break;
+		}
+		random=(int) MathUtils.random(0,menu.length-1);
+		for(int i=0;i<random;i++){
+			int randomF=MathUtils.random(0,menu.length-1);
+			if(!exampleDemand.contains(menu[randomF],true)){
+				exampleDemand.add(menu[randomF]);
+			}
+		}
+		exampleDemand.add("milk");
+
+		customers.add(new Customer(x,y,exampleDemand));
+	}
 	@Override
 	public void resize(int width, int height) {
 		viewport.update(width,height,true);
@@ -174,12 +289,26 @@ public class ChaiStall extends ApplicationAdapter {
 		realHandTexture= new Texture("hand.png");
 		milkcupTexture = new Texture("milkcup.png");
 		recycleBinTexture=new Texture("recyclebin.png");
+		customerAreaTexture=new Texture("customerarea.png");
+		moneyTexture=new Texture("money.png");
+		MoneyFont=new BitmapFont();
+		MoneyFont.setColor(Color.GREEN);
+		MoneyFont.getData().setScale(2f);
+		customerArea=new Sprite(customerAreaTexture);
+		customerArea.setScale(1f);
+		customerArea.setPosition(145,0);
+		customerArea.setOrigin(customerArea.getWidth()/2f,customerArea.getHeight()/2f);
+		customerAreaBounds=customerArea.getBoundingRectangle();
 
-
+		for(int i = 0;i<13;i++){
+			customerArray[i]=new Texture("walk"+(i+1)+".png");
+		}
 
 		stallObjectArray.addAll(new StallObject(keepableTexture,"keepable",250,0),new StallObject(stoveTexture,"stove",345,170),new StallObject(milkSourceTexture,"milk",495,100));
 		stallObjectArray.addAll(new StallObject(cupSourceTexture,"cup",350,25),new StallObject(gingerSourceTexture,"ginger",260,110),new StallObject(leaveSourceTexture,"leaves",260,140),new StallObject(sugarSourceTexture,"sugar",290,140));
 		stallObjectArray.addAll(new StallObject(chocolateSourceTexture,"chocolate",290,110),new StallObject(recycleBinTexture,"recyclebin",70,0));
+
+		spawnCustomer();
 
 
 		SaucePanDetails=new BitmapFont();
@@ -195,13 +324,19 @@ public class ChaiStall extends ApplicationAdapter {
 	@Override
 	public void render () {
 		ScreenUtils.clear(0, 0, 0, 1);
-
+		float delta = Gdx.graphics.getDeltaTime();
+		worldTimeElapsed+=delta;
+		if(customers.size<7&&(worldTimeElapsed>MathUtils.random(10,15))){
+			spawnCustomer();
+			worldTimeElapsed=0;
+		}
 		camera.position.set(windowWidth/2f,windowHeight/2f,0);
 		camera.update();
 		batch.setProjectionMatrix(camera.combined);
 		playerBounds=player.getBoundingRectangle();
 		batch.begin();
 		batch.draw(backgroundTexture, 0, 0);
+		customerArea.draw(batch);
 		for(StallObject obj : stallObjectArray){
 			obj.render(batch);
 		}
@@ -217,19 +352,33 @@ public class ChaiStall extends ApplicationAdapter {
 				if(obj.contents.size>0){
 					obj.contents.removeRange(0,obj.contents.size-1);
 					obj.quantity=0;
+					obj.cooked=0f;
+					obj.timeElapsed=0f;
 				}
 			}
 			}
 		}
+
+
+		for(Customer cus : customers){
+			cus.render(batch);
+			if(cus.satisfied&&((cus.customerObj.getY()>420-10)||(cus.customerObj.getX()<5)||(cus.customerObj.getX()>800-5))){
+
+				customers.removeValue(cus,true);
+
+			}
+		}
+
 		for(Cup cup : cupArray){
 			cup.render(batch);
 		}
-
 
 		for(SaucePan obj : saucePanArray) SaucePanDetails.draw(batch,""+obj.contents + " "+ obj.quantity,obj.saucePanObj.getX()-obj.contents.size*15f,obj.saucePanObj.getY(),150,10,true);
 		if(!playerOccupied){ player.setTexture(handTexture);player.setSize(1,1);player.setColor(1,1,1,0);}
 		player.draw(batch);
 		hand.draw(batch);
+		batch.draw(moneyTexture,800-160,420-50,91/1.5f,52/1.5f);
+		MoneyFont.draw(batch,money+"",800-95,420-22);
 		batch.end();
 		//console(cupArray.size+"");
 	}
@@ -255,7 +404,12 @@ public class ChaiStall extends ApplicationAdapter {
 		realHandTexture.dispose();
 		SaucePanDetails.dispose();
 		recycleBinTexture.dispose();
+		customerAreaTexture.dispose();
+		MoneyFont.dispose();
+		moneyTexture.dispose();
 		for(Cup cup : cupArray) cup.textureDispose();
+		for(Texture tex : customerArray) tex.dispose();
+		for(Customer cus : customers) cus.customerFont.dispose();
 	}
 
 	InputProcessor ChaiInput = new InputProcessor() {
@@ -291,17 +445,42 @@ public class ChaiStall extends ApplicationAdapter {
 					if(cup.getCupBounds().overlaps(playerBounds)){
 						if(cup.active){
 							cup.active=false;
+							for(StallObject stallObject : stallObjectArray) {
+								if(stallObject.getObjectBounds().overlaps(cup.getCupBounds())&& Objects.equals(stallObject.objectName, "recyclebin")){
+									cupArray.removeValue(cup,true);
+								}
+							}
+							for(Customer cus : customers){
+								if(cus.getCustomerBounds().overlaps(cup.getCupBounds())){
+									for(String cupOpjects : cup.contents){
+										if(cus.demand.contains(cupOpjects,true)){
+											cus.rating++;
+										}
+									}
+									money+=cus.rating*5f;
+									//console(""+money);
+									cus.satisfied=true;
+									if(cus.customerObj.getRotation()>180){
+										cus.customerObj.setRotation(cus.customerObj.getRotation()-180);
+									}else{
+										cus.customerObj.setRotation(cus.customerObj.getRotation()+180);
+									}
+
+									cupArray.removeValue(cup,true);
+									//customers.removeValue(cus,true);
+
+								}
+							}
 							playerOccupied=false;
 							player.setTexture(handTexture);
 							player.setSize(1,1);
 							player.setColor(1,1,1,0);
-							console("inactive");
 							break;
 						}
 						if(!playerOccupied){
 							cup.active=true;
 							playerOccupied=true;
-							console("active");
+							//console("active");
 							break;
 						}
 					}
@@ -361,7 +540,7 @@ public class ChaiStall extends ApplicationAdapter {
 				}
 
 				for(SaucePan obj : saucePanArray){
-					Gdx.app.log(""," occupied? "+playerOccupied +" name = "+ itemName +" active?" +obj.active);
+					//Gdx.app.log(""," occupied? "+playerOccupied +" name = "+ itemName +" active?" +obj.active);
 
 					playerBounds=player.getBoundingRectangle();
 					if(playerBounds.overlaps(obj.getSaucePanBounds())){
@@ -374,7 +553,7 @@ public class ChaiStall extends ApplicationAdapter {
 								cupArray.add(new Cup(touch.x - 6, touch.y - 8, obj.contents));
 								itemName=" ";
 								obj.quantity -= 20;
-								console(cupArray.size + "");
+								//console(cupArray.size + "");
 								break;
 							}
 						}
