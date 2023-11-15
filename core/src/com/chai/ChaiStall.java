@@ -276,23 +276,34 @@ public class ChaiStall extends ApplicationAdapter {
 
 		@Override
 		public boolean touchDown(int screenX, int screenY, int pointer, int button) {
-			if(Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)){
+
+			if(Gdx.input.isTouched()){
+				touch = new Vector3(screenX,screenY,0);
+				camera.unproject(touch);
+				player.setPosition(touch.x+ ((playerOccupied && (Objects.equals(itemName, "milk") || Objects.equals(itemName, "cup")))?-6:0),touch.y+ ((playerOccupied && (Objects.equals(itemName, "milk") || Objects.equals(itemName, "cup")))?-8:0));
+				hand.setPosition(touch.x,touch.y);
+			}
+
+			if(Gdx.input.isButtonJustPressed(Input.Buttons.LEFT) || Gdx.input.isTouched()){
 
 				for(Cup cup : cupArray){
-					if(player.getBoundingRectangle().overlaps(cup.getCupBounds()) ){
-						cup.active=!cup.active;
-					}
-					for(StallObject stallObject : stallObjectArray){
-					if(cup.getCupBounds().overlaps(stallObject.getObjectBounds()) && Objects.equals(stallObject.objectName, "recyclebin")){
-						cupArray.removeValue(cup,true);
 
-					}else{
-						cup.active=false;
-						playerOccupied=false;
-						player.setColor(1, 1, 1, 0);
-						player.setTexture(handTexture);
-						player.setSize(1, 1);
-					}
+					if(cup.getCupBounds().overlaps(playerBounds)){
+						if(cup.active){
+							cup.active=false;
+							playerOccupied=false;
+							player.setTexture(handTexture);
+							player.setSize(1,1);
+							player.setColor(1,1,1,0);
+							console("inactive");
+							break;
+						}
+						if(!playerOccupied){
+							cup.active=true;
+							playerOccupied=true;
+							console("active");
+							break;
+						}
 					}
 				}
 
@@ -361,6 +372,7 @@ public class ChaiStall extends ApplicationAdapter {
 						if(!playerOccupied &&Objects.equals(itemName, "cup")&&!obj.active){
 							if(obj.quantity>0) {
 								cupArray.add(new Cup(touch.x - 6, touch.y - 8, obj.contents));
+								itemName=" ";
 								obj.quantity -= 20;
 								console(cupArray.size + "");
 								break;
@@ -392,16 +404,12 @@ public class ChaiStall extends ApplicationAdapter {
 							if(Objects.equals(itemName, "cup")){
 								if(obj.quantity>0){
 								cupArray.add(new Cup(touch.x-6,touch.y-8,obj.contents));
+								itemName=" ";
 								obj.quantity-=20;
 							}}
-
-
-
 							obj.active=false;
 							playerOccupied=false;
 						}
-
-
 				}
 
 				}
